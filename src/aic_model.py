@@ -28,11 +28,16 @@ for i in range(NUM_FEATURE_SCALES):
 
     F_shape = (3, 3) # if i < 3 else (1, 1)
     F = kl.LeakyReLU(alpha=0.2)(kl.Conv2D(64, F_shape, strides=(1, 1))(scale_input))
+    
+    # Downsample for multiscale feature extraction
     D = kl.Conv2D(input_shape[2], (4, 4), strides=(2, 2), padding='same')(scale_input)
+
+    # G_m(.)
     if i == 0:
         G = kl.Conv2D(32, (3, 3), strides=(1, 1))(F)
     else:
         downscale_amount = 2 ** i
+        # Upsample for the sum to G(.)
         # https://towardsdatascience.com/transpose-convolution-77818e55a123
         G = kl.Conv2DTranspose(32, (2, 2), strides=(downscale_amount, downscale_amount))(F)
 
@@ -42,9 +47,10 @@ for i in range(NUM_FEATURE_SCALES):
 
 merged_resample = kl.Add()(resamples)
 output = kl.LeakyReLU(alpha=0.2)(kl.Conv2D(48, (3, 3), padding='same')(merged_resample))
-hmm = kl.Conv2D(32, (3, 3))(output)
-hmm = kl.Conv2D(16, (3, 3))(hmm)
-cifar_output = kl.Dense(100, activation='softmax')(kl.Flatten()(hmm))
+
+extraConv1 = kl.Conv2D(32, (3, 3), activation='relu')(output)
+extraConv2 = kl.Conv2D(16, (3, 3), activation='relu')(extraConv1)
+cifar_output = kl.Dense(100, activation='softmax')(kl.Flatten()(extraConv2))
 
 if __name__ == '__main__':
     model = km.Model(inputs=x_1_input, outputs=cifar_output)
